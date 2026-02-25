@@ -1,1 +1,400 @@
+  <!DOCTYPE html>
+  <html>
+  <head>
+      <title>Spin the Wheel</title>
+      <style>
+      .wheel {
+          transition: transform 15s cubic-bezier(.49,.51,0,1);
+          display: block;
+      }
+      .container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          overflow: hidden;
+      }
+      #arrow {
+          margin-top: -5px;
+          transform: rotate(180deg);
+      }
+      #result {
+          font-size: 24px;  /* Increase the size of the text */
+          text-align: center;  /* Center the text */
+          margin-bottom: 100px;  /* Add some space below the text */
+      }
+      .buttons {
+          margin-top: 20px;
+          z-index: 10; /* Higher z-index value */
+          position: relative; /* Position must be set for z-index to take effect */
+      }
+         body {
+          -webkit-user-select: none; /* Safari */
+          -moz-user-select: none; /* Firefox */
+          -ms-user-select: none; /* IE10+/Edge */
+          user-select: none; /* Standard */
+      }
+      </style>
+      <script src="https://d3js.org/d3.v6.min.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
+  </head>
+  <body>
+      <div class="container">
+          <div class="entry-form">
+              <h2>Update Wheel Entries</h2>
+              <form id="entryForm">
+                  <label for="entries">Entries (comma separated):</label><br>
+                  <input type="text" id="entries" name="entries"><br>
+                  <label for="weights">Weights (comma separated):</label><br>
+                  <input type="text" id="weights" name="weights"><br>
+                  <input type="submit" value="Update">
+              </form>
+          </div>
+          <div id="result" style="font-size: 2em; margin-top: 20px;"></div>
+          <svg class="wheel" id="wheel" width="400" height="400" viewbox="0 0 200 200">
+              <!-- The wheel segments will be added here dynamically -->
+          </svg>
+          <svg id="arrow" width="200" height="30">
+              <polygon points="100,30 110,0 90,0" style="fill:black"/>
+          </svg>
+          <div class="buttons">
+            
+              <button id="spinButton">Spin</button>
 
+              <button onclick="updateWheel()">Update</button>
+          </div>
+      </div>
+      <script>
+        
+      var colors = ['LightGreen', 'LightCoral', 'LightSkyBlue', 'LightGoldenRodYellow', 'LightSalmon', 'LightGrey', 'LightBlue', 'LightCyan', 'LightSteelBlue'];
+      var currentAngle = 0;
+      var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port);
+      var entries = [];
+        
+        
+            // Inside your <script> tag
+      document.getElementById('spinButton').addEventListener('mousedown', function() {
+        // Record the start time of the click
+        clickStartTime = new Date().getTime();
+      });
+        
+              document.getElementById('spinButton').addEventListener('mouseup', function() {
+        // Calculate the duration the button was held down
+        const clickDuration = new Date().getTime() - clickStartTime;
+
+        // Call the spin function with the click duration
+        spin(clickDuration);
+      });
+      
+        
+        
+        
+        
+        
+        // At the top inside your <script> tag where you define socket
+        socket.on('result', function(data) {
+          console.log('Received broadcasted result:', data);
+          document.getElementById('result').textContent = data.subEntry + ' ' + data.entry;
+        });
+
+        
+      socket.on('spin', function(data) {
+          console.log('Received angle:', data.angle);
+          var wheel = document.getElementById('wheel');
+          currentAngle = data.angle;
+          wheel.style.transform = 'rotate(' + currentAngle + 'deg)';
+      });
+
+        
+        
+      function getSubEntry(finalAngle, startAngle, endAngle) {
+        
+        console.log(`getSubEntry called with finalAngle: ${finalAngle}, startAngle: ${startAngle}, endAngle: ${endAngle}`);
+    // Define the ranges for each sub-entry based on the segment's start and end angles
+    var range = endAngle - startAngle;
+    var rangeModulus = ((range%360)+360)%360;
+        
+   console.log('entry range: ', rangeModulus);
+    // The sub-entry names
+    var subEntries = ['slim', 'medium', 'major', 'huge', 'epic', 'epic', 'huge', 'major', 'medium', 'slim'];
+
+    // Calculate the actual angle ranges within the segment
+    var subRanges = [
+        (startAngle + rangeModulus * 1)%360,   // Slim
+        (startAngle + rangeModulus * 0.95)%360,   // Medium
+        (startAngle + rangeModulus * 0.725)%360,   // Major
+        (startAngle + rangeModulus * 0.575)%360,  // Huge
+        (startAngle + rangeModulus * 0.525)%360, // Epic
+        (startAngle + rangeModulus * 0.5)%360, // Epic
+        (startAngle + rangeModulus * 0.475)%360, // Huge
+        (startAngle + rangeModulus * 0.425)%360, // Major
+        (startAngle + rangeModulus * 0.275)%360,  // Medium
+        (startAngle + rangeModulus * 0.05)%360   // Slim
+    ];
+        
+        console.log('Calculated subRanges:', subRanges);
+        
+    var currentSubEntry;
+    var currentValue = 360;
+    
+    // Determine which sub-range the final angle falls into
+    for (var i = subRanges.length - 1; i >= 0; i--) {
+      console.log(`Checking if finalAngle: ${finalAngle} is less than subRange: ${subRanges[i]} for subEntry: ${subEntries[i]}`);
+      console.log('checking currentValue: ', currentValue, ', and competing value: ', ((subRanges[i]-finalAngle)+360)%360);
+        if (((subRanges[i]-finalAngle)+360)%360 <= currentValue){
+          currentSubEntry = i;
+          currentValue = ((subRanges[i]-finalAngle)+360)%360;
+    }
+    }
+
+        
+      console.log(`finalAngle is within the sub-range for: ${subEntries[currentSubEntry]}`);
+      return subEntries[currentSubEntry];
+
+      }  
+      // Modify the spin function to accept a parameter for duration
+    function spin(clickDuration) {
+        
+        
+    // Disable the spin button
+  var spinButton = document.getElementById('spinButton'); // Make sure you have the correct ID
+  spinButton.disabled = true;
+        
+        // Calculate the number of spins and angle based on clickDuration
+  // The longer the duration, the stronger the spin
+  var spins = Math.floor(clickDuration / 200) + 5; // 200ms per extra spin, for example
+  var angle = spins * 360 + Math.random() * 360;
+  currentAngle += angle;
+  var wheel = document.getElementById('wheel');
+  wheel.style.transform = 'rotate(' + currentAngle + 'deg)';
+
+  console.log('Spin initiated. Total spins: ', spins);
+  console.log('Random angle added: ', angle);
+  console.log('New currentAngle (after spin): ', currentAngle);
+
+  fetch('/spin', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ 'angle': currentAngle })
+  });
+
+  setTimeout(function () {
+    var selectedEntry;
+    var selectedSubEntry;
+    var wheelSegments = d3.select('#wheel').selectAll('g.segment').nodes(); // Selecting the group elements
+    var totalWeights = wheelSegments.reduce(function (acc, segment) {
+      return acc + segment._current.weight;
+    }, 0);
+
+    console.log('total weights: ', totalWeights);
+    var cumulativeAngle = 0;
+    var finalAngle = currentAngle % 360;
+
+    console.log('Final angle after modulus 360: ', finalAngle);
+
+    var value = 360;
+    
+    for (var i = 0; i < wheelSegments.length; i++) {
+      var segment = wheelSegments[i];
+      var segmentWeight = segment._current.weight;
+      var segmentProportion = segmentWeight / totalWeights;
+      var segmentAngle = segmentProportion * 360;
+      var segmentStartAngle = cumulativeAngle;
+      if (i==0){
+        var adjustedSegmentStartAngle = (((segmentStartAngle+((180-segmentAngle)))%360)+360)%360;
+      } else {
+        adjustedSegmentStartAngle = (((adjustedSegmentStartAngle - segmentAngle)%360)+360)%360; 
+}
+      console.log('log check start angle:', adjustedSegmentStartAngle - segmentAngle)
+      var segmentEndAngle = (adjustedSegmentStartAngle + segmentAngle)%360;
+      console.log(`Segment ${i}: startAngle=${adjustedSegmentStartAngle.toFixed(2)}, endAngle=${segmentEndAngle.toFixed(2)}, finalAngle=${finalAngle.toFixed(2)}`);
+
+      var adjustedSegmentEndAngle = Math.abs((adjustedSegmentStartAngle + segmentAngle)%360);
+      
+      var currentEntry;
+      var officialStartAngle;
+      var officialEndAngle;
+      
+      console.log('current start angle modulus:', ((finalAngle-adjustedSegmentStartAngle)+360)%360, 'current value: ', value);
+      
+      if(((finalAngle-adjustedSegmentStartAngle)+360)%360 <= value) {
+        currentEntry = i;
+        value = ((finalAngle-adjustedSegmentStartAngle)+360)%360;
+        console.log(`Entry ${currentEntry} value:`, value);
+        officialStartAngle = adjustedSegmentStartAngle;
+        officialEndAngle = segmentEndAngle;
+      }
+
+      cumulativeAngle += 360/wheelSegments.length;
+    }
+    
+    console.log('Selected entry was:', currentEntry);
+    
+        selectedEntry = wheelSegments[currentEntry]._current.entry;
+        selectedSubEntry = getSubEntry(finalAngle, officialStartAngle, officialEndAngle);
+        console.log('Entry found:', selectedEntry);
+        console.log('Sub-entry found:', selectedSubEntry);
+        
+    
+        console.log('Emitting spin result:', { entry: selectedEntry, subEntry: selectedSubEntry });
+    
+        socket.emit('spinResult', { entry: selectedEntry, subEntry: selectedSubEntry });
+
+    // Display the result
+    var resultText = document.getElementById('result');
+    if (selectedEntry && selectedSubEntry) {
+      resultText.textContent = selectedSubEntry + ' ' + selectedEntry;
+      console.log('Result displayed: ', resultText.textContent);
+    } else {
+      resultText.textContent = 'No entry found';
+      console.log('Result displayed: No entry found');
+    }
+    // Re-enable the spin button
+    spinButton.disabled = false;
+    // At the end of the spin function, before re-enabling the button
+    clickStartTime = null; // Reset the start time
+
+  }, 15000); // This delay should match the spin animation time
+}
+
+
+      async function updateWheel() {
+    var response = await fetch('/wheel', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    });
+
+    var data = await response.json();
+    console.log("Data received from server:", data); // Add this line
+    if (!Array.isArray(data.entries) || !Array.isArray(data.weights) || data.entries.length !== data.weights.length) {
+        console.error('Invalid data received from server');
+        return;
+    }
+
+    var wheel = d3.select('#wheel');
+    wheel.selectAll("*").remove();
+
+    var outerRadius = 100; // Half of the viewBox dimension
+    var arc = d3.arc().innerRadius(0).outerRadius(outerRadius);
+    var pie = d3.pie().sort(null).value(function(d) { return d; });
+    var pieData = pie(data.weights);
+    console.log("Pie data:", pieData); // Add this line
+    function adjustTone(color, index) {
+    // Convert the base color to HSL
+    var adjustedColor = d3.hsl(color);
+    
+    // Calculate the new lightness value. Ensure it doesn't go below a minimum threshold.
+    // We will use a smaller decrement to prevent the color from getting too dark.
+    var lightnessDecrement = (index + 1) * (0.8 / 8); // Smaller decrement
+    adjustedColor.l = Math.max(0, adjustedColor.l - lightnessDecrement); // Set a floor for lightness
+
+    return adjustedColor.toString();
+}
+
+
+
+    // Define the sub-segment proportions
+    var subSegmentProportions = [0.1,0.45, 0.3, 0.1, 0.05]; // Equal proportions for each sub-segment
+    
+    
+    var mainSegments = wheel.selectAll('g.segment')
+        .data(pieData)
+        .enter()
+        .append('g')
+        .classed('segment', true)
+        .each(function(d) { 
+    this._current = d; // Storing the pie data in the _current property
+    console.log("Segment data being set:", d); // Log inside the function where 'd' is defined
+})
+        .attr('transform', 'translate(' + outerRadius + ',' + outerRadius + ')');
+
+    // Main segment color fill
+    mainSegments.append('path')
+        .attr('d', arc)
+        .attr('fill', function(d, i) { return colors[i % colors.length]; })
+        .style('opacity', 0); // Set the main segment opacity to 0 to make it invisible
+
+   // Create the main segments with additional data
+      mainSegments.each(function(d, i) {
+        this._current = {
+          ...this._current, // Spread existing data if any
+        entry: data.entries[i], // Include the entry name from the data
+        weight: data.weights[i] // Include the weight
+    };
+        var startAngle = this._current.startAngle;;
+       var endAngle = this._current.endAngle;
+    var mainSegmentAngle = endAngle - startAngle;
+    var lastSubAngle = startAngle;  
+
+        subSegmentProportions.forEach((proportion, index) => {
+            // Calculate the angles for the sub-segments
+            var subAngle = (mainSegmentAngle * proportion) / 2; // Half proportion for each side
+            var subEndAngle = lastSubAngle + subAngle;
+
+            // Create arcs for the left side
+            var subArcLeft = d3.arc()
+                .innerRadius(0)
+                .outerRadius(outerRadius)
+                .startAngle(lastSubAngle)
+                .endAngle(subEndAngle);
+            
+            d3.select(this).append('path')
+                .attr('d', subArcLeft)
+                .attr('fill', adjustTone(colors[i % colors.length], index));
+
+            // Create arcs for the right side
+            var subArcRight = d3.arc()
+                .innerRadius(0)
+                .outerRadius(outerRadius)
+                .startAngle(endAngle - (lastSubAngle - startAngle))
+                .endAngle(endAngle - (subEndAngle - startAngle));
+
+            d3.select(this).append('path')
+                .attr('d', subArcRight)
+                .attr('fill', adjustTone(colors[i % colors.length], index));
+
+            lastSubAngle = subEndAngle;
+        });
+    });
+}
+
+
+
+
+
+      document.getElementById('entryForm').addEventListener('submit', function(e) {
+          e.preventDefault();
+
+          var entriesInput = document.getElementById('entries').value;
+          var weightsInput = document.getElementById('weights').value;
+
+          fetch('/wheel', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({'entries': entriesInput.split(','), 'weights': weightsInput.split(',').map(Number)})
+          })
+          .then(response => response.json())
+          .then(data => {
+              if (data.status === 'success') {
+                  updateWheel();  // Update the wheel visualization
+              } else {
+                  console.error('Error updating the wheel:', data);
+              }
+          })
+          .catch(error => console.error('Error in fetch:', error));
+      });
+
+      window.onload = updateWheel;window.onload = function() {
+    updateWheel();
+    console.log("Entries at start:", entries); // Add this line
+};
+      </script>
+  </body>
+  </html>
