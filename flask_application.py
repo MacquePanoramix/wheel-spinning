@@ -8,7 +8,7 @@ from random import choices
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
 db = SQLAlchemy(app)
-socketio = SocketIO(app)
+socketio = SocketIO(app, async_mode="eventlet")
 
 class Wheel(db.Model):
     id = db.Column(db.Integer, primary_key=True)
